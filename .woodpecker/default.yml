@@ -1,0 +1,110 @@
+when:
+  - event: push
+    branch: master
+
+clone:
+  git:
+    image: woodpeckerci/plugin-git
+    settings:
+      attempts: 5
+      backoff: 10s
+
+steps:
+  - name: build-and-push
+    image: woodpeckerci/plugin-docker-buildx
+    settings:
+      repo: viktorbarzin/k8s-portal
+      dockerfile: Dockerfile
+      username: viktorbarzin
+      password:
+        from_secret: dockerhub-pat
+      tags:
+        - "${CI_PIPELINE_NUMBER}"
+        - latest
+      cache_from: "viktorbarzin/k8s-portal:latest"
+      cache_to: "type=inline"
+
+  - name: deploy
+    image: docker.io/library/alpine
+    depends_on:
+      - build-and-push
+    commands:
+      - apk add --no-cache curl jq
+      - |
+        TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+        IMAGE="viktorbarzin/k8s-portal:${CI_PIPELINE_NUMBER}"
+        RESTART_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        API="https://kubernetes:6443/apis/apps/v1/namespaces/k8s-portal/deployments/k8s-portal"
+
+        curl -s -X PATCH "$API" \
+          -H "Authorization: Bearer $TOKEN" \
+          -H "Content-Type: application/strategic-merge-patch+json" \
+          -k \
+          -d "{
+            \"spec\": {
+              \"template\": {
+                \"metadata\": {
+                  \"annotations\": {
+                    \"ci.woodpecker/restartedAt\": \"$RESTART_AT\"
+                  }
+                },
+                \"spec\": {
+                  \"containers\": [{
+                    \"name\": \"portal\",
+                    \"image\": \"$IMAGE\"
+                  }]
+                }
+              }
+            }
+          }" | jq '.status.conditions // "Patch applied"'
+
+  - name: verify-deploy
+    image: docker.io/library/alpine
+    depends_on:
+      - deploy
+    commands:
+      - apk add --no-cache curl jq
+      - |
+        TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+        API="https://kubernetes:6443/apis/apps/v1/namespaces/k8s-portal/deployments/k8s-portal"
+        TARGET_IMAGE="viktorbarzin/k8s-portal:${CI_PIPELINE_NUMBER}"
+
+        echo "Waiting for deployment to roll out with image $TARGET_IMAGE..."
+
+        for i in $(seq 1 60); do
+          READY=$(curl -sk "$API" \
+            -H "Authorization: Bearer $TOKEN" \
+            | jq -r '.status.readyReplicas // 0')
+
+          CURRENT_IMAGE=$(curl -sk "$API" \
+            -H "Authorization: Bearer $TOKEN" \
+            | jq -r '.spec.template.spec.containers[0].image')
+
+          if [ "$CURRENT_IMAGE" = "$TARGET_IMAGE" ] && [ "$READY" -ge 1 ]; then
+            echo "Deployment verified: $READY replica(s) ready with image $TARGET_IMAGE"
+            exit 0
+          fi
+
+          if [ "$i" -eq 1 ] || [ "$i" -eq 10 ] || [ "$i" -eq 30 ]; then
+            echo "Attempt $i/60: ready=$READY image=$CURRENT_IMAGE"
+          fi
+
+          sleep 5
+        done
+
+        echo "ERROR: Deployment did not stabilize within 5 minutes"
+        curl -sk "$API/status" \
+          -H "Authorization: Bearer $TOKEN" \
+          | jq '.status'
+        exit 1
+
+  - name: slack
+    image: woodpeckerci/plugin-slack
+    depends_on:
+      - verify-deploy
+    settings:
+      webhook:
+        from_secret: slack-webhook-url
+      channel: general
+    when:
+      - status: [success, failure]
