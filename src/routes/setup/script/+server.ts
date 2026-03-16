@@ -159,11 +159,19 @@ if ! grep -q 'config-home' "\$SHELL_RC" 2>/dev/null; then
 fi
 export KUBECONFIG=~/.kube/config-home
 
+# Set VAULT_ADDR
+if ! grep -q 'VAULT_ADDR' "\$SHELL_RC" 2>/dev/null; then
+    echo 'export VAULT_ADDR="https://vault.viktorbarzin.me"' >> "\$SHELL_RC"
+    echo "[OK] Added VAULT_ADDR to \$SHELL_RC"
+fi
+export VAULT_ADDR="https://vault.viktorbarzin.me"
+
 echo ""
 echo "=== Setup complete! ==="
 echo ""
 echo "Run 'kubectl get namespaces' to test (opens browser for login)."
-echo "You may need to restart your shell or run: export KUBECONFIG=~/.kube/config-home"
+echo "Run 'vault login -method=oidc' to authenticate with Vault."
+echo "You may need to restart your shell or run: source \$SHELL_RC"
 `;
 	} else {
 		script = `#!/bin/bash
@@ -250,11 +258,19 @@ if ! grep -q 'config-home' "\$SHELL_RC" 2>/dev/null; then
 fi
 export KUBECONFIG=~/.kube/config-home
 
+# Set VAULT_ADDR
+if ! grep -q 'VAULT_ADDR' "\$SHELL_RC" 2>/dev/null; then
+    echo 'export VAULT_ADDR="https://vault.viktorbarzin.me"' >> "\$SHELL_RC"
+    echo "[OK] Added VAULT_ADDR to \$SHELL_RC"
+fi
+export VAULT_ADDR="https://vault.viktorbarzin.me"
+
 echo ""
 echo "=== Setup complete! ==="
 echo ""
 echo "Run 'kubectl get namespaces' to test (opens browser for login)."
-echo "You may need to restart your shell or run: export KUBECONFIG=~/.kube/config-home"
+echo "Run 'vault login -method=oidc' to authenticate with Vault."
+echo "You may need to restart your shell or run: source \$SHELL_RC"
 `;
 	}
 

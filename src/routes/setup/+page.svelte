@@ -28,12 +28,24 @@ chmod +x kubectl && sudo mv kubectl /usr/local/bin/</pre>
 unzip kubelogin_linux_amd64.zip && sudo mv kubelogin /usr/local/bin/kubectl-oidc_login
 rm kubelogin_linux_amd64.zip</pre>
 
-		<h3>3. Download and use your kubeconfig</h3>
-		<pre>
-mkdir -p ~/.kube
+		<h3>3. Install Vault CLI</h3>
+		<h4>macOS</h4>
+		<pre>brew tap hashicorp/tap
+brew install hashicorp/tap/vault</pre>
+		<h4>Linux</h4>
+		<pre>curl -fsSL https://releases.hashicorp.com/vault/1.19.0/vault_1.19.0_linux_amd64.zip -o vault.zip
+unzip vault.zip && sudo mv vault /usr/local/bin/ && rm vault.zip</pre>
 
-# Download from the portal (requires auth cookie from browser)
-# Or use the download button on the portal homepage
+		<h3>4. Configure Vault and kubeconfig</h3>
+		<pre>
+# Point Vault at our server
+export VAULT_ADDR="https://vault.viktorbarzin.me"
+
+# Add to shell profile so it persists
+echo 'export VAULT_ADDR="https://vault.viktorbarzin.me"' >> ~/.zshrc  # or ~/.bashrc
+
+# Log in via Authentik SSO (opens browser)
+vault login -method=oidc
 
 # Set the KUBECONFIG environment variable
 export KUBECONFIG=~/.kube/config-home

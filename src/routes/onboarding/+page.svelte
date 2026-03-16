@@ -47,10 +47,26 @@
 
 	{#if showNamespaceOwner}
 		<section>
-			<h2>Step 3 — Log into Vault</h2>
-			<p>Vault manages your secrets and issues dynamic Kubernetes credentials.</p>
-			<pre>vault login -method=oidc</pre>
-			<p>This opens your browser for Authentik SSO. After login, your token is saved to <code>~/.vault-token</code>.</p>
+			<h2>Step 3 — Install and log into Vault</h2>
+			<p>Vault manages your secrets and issues dynamic Kubernetes credentials. First, install the Vault CLI:</p>
+			<h3>macOS</h3>
+			<pre>brew tap hashicorp/tap
+brew install hashicorp/tap/vault</pre>
+			<h3>Linux (Debian/Ubuntu)</h3>
+			<pre>wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+sudo apt update && sudo apt install vault</pre>
+			<h3>Linux (other)</h3>
+			<pre>curl -fsSL https://releases.hashicorp.com/vault/1.19.0/vault_1.19.0_linux_amd64.zip -o vault.zip
+unzip vault.zip && sudo mv vault /usr/local/bin/ && rm vault.zip</pre>
+
+			<p>Then configure it to point at our Vault server and log in:</p>
+			<pre>export VAULT_ADDR="https://vault.viktorbarzin.me"
+
+# Log in via Authentik SSO (opens browser)
+vault login -method=oidc</pre>
+			<p>After login, your token is saved to <code>~/.vault-token</code>. Add <code>VAULT_ADDR</code> to your shell profile so it persists:</p>
+			<pre>echo 'export VAULT_ADDR="https://vault.viktorbarzin.me"' >> ~/.bashrc  # or ~/.zshrc</pre>
 		</section>
 
 		<section>
