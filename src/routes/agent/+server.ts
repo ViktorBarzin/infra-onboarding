@@ -134,6 +134,47 @@ Kyverno auto-generates LimitRange + ResourceQuota per namespace based on tier la
 4. Viktor reviews and merges
 5. CI applies automatically — Slack notification when done
 
+## Namespace-Owner Quick Start
+
+If you're a namespace-owner (your user is in \`k8s_users\` with \`role: "namespace-owner"\`), follow this workflow to deploy your own apps:
+
+### 1. Create Your Stack from Template
+\`\`\`bash
+cp -r stacks/_template stacks/myapp
+mv stacks/myapp/main.tf.example stacks/myapp/main.tf
+# Replace all <placeholders> in main.tf with your values
+\`\`\`
+
+### 2. Store Secrets in Vault
+\`\`\`bash
+vault login -method=oidc
+vault kv put secret/<your-username>/myapp DB_PASSWORD=xxx API_KEY=yyy
+\`\`\`
+Your Vault path is \`secret/<your-username>/*\` — you have full CRUD access there and nowhere else.
+
+### 3. Resource Constraints
+- Your namespace has a **ResourceQuota** — you cannot exceed your CPU, memory, storage, or pod limits.
+- **Always set explicit \`resources {}\`** on every container. Default: \`cpu = "10m"\`, \`memory = "256Mi"\`.
+- Your pods run at **tier-4-aux** priority — they never preempt platform services.
+- Storage quota: default **20Gi** total, **5 PVCs** max.
+
+### 4. Submit a PR
+\`\`\`bash
+git checkout -b feat/myapp
+git add stacks/myapp/
+git commit -m "add myapp stack"
+git push -u origin feat/myapp
+# Open PR — admin reviews and runs terragrunt apply
+\`\`\`
+
+### What You CANNOT Do
+- \`kubectl apply/edit/patch/delete\` for persistent changes (read-only kubectl only)
+- Access resources outside your namespace (RBAC-enforced)
+- Read other users' Vault secrets
+- Run \`terragrunt apply\` (admin-only)
+- Exceed your namespace quota
+- Use \`:latest\` image tags (pull-through cache serves stale manifests)
+
 ## Infrastructure Details
 
 - **Proxmox**: 192.168.1.127 (Dell R730, 22c/44t, 142GB RAM)
